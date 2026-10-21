@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyBestMusic — Музыкальный плеер</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome для красивых иконок -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Inter Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#10b981',
+              600: '#059669',
+              accent: '#6366f1',
+              dark: '#0f172a',
+              card: '#1e293b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Плавные переходы и кастомный скроллбар */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    
+    /* Стилизация ползунка */
+    input[type=range] {
+      accent-color: #10b981;
+    }
+
+    .glassmorphism {
+      background: rgba(30, 41, 59, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans pb-36 select-none">
+
+  <!-- Шапка сайта -->
+  <header class="glassmorphism sticky top-0 z-40 border-b border-slate-800/80 px-4 py-3 sm:px-8">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <i class="fa-solid fa-compact-disc text-xl text-white animate-spin" style="animation-duration: 8s;"></i>
+        </div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
+            MyBestMusic
+          </h1>
+          <p class="text-xs text-slate-400">Плейлист с ваших аудио и видеофайлов</p>
+        </div>
+      </div>
+      
+      <!-- Индикатор треков в базе -->
+      <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-700/60 text-xs">
+        <i class="fa-solid fa-music text-emerald-400"></i>
+        <span id="track-count-badge">0 треков</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Основной контейнер с вкладками / разделами -->
+  <main class="max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex-1 flex flex-col gap-8">
+
+    <!-- Навигационные кнопки переключения вкладок на мобильных -->
+    <div class="flex items-center justify-center p-1 bg-slate-900/90 rounded-2xl border border-slate-800 max-w-2xl mx-auto w-full overflow-x-auto gap-1">
+      <button id="tab-btn-list" onclick="switchTab('list')" class="flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md">
+        <i class="fa-solid fa-list-ul"></i>
+        <span>Музыка</span>
+      </button>
+      <button id="tab-btn-import" onclick="switchTab('import')" class="flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <span>Импорт</span>
+      </button>
+      <button id="tab-btn-instructions" onclick="switchTab('instructions')" class="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-mobile-screen-button"></i>
+        <span>На экран</span>
+      </button>
+      <button id="tab-btn-author" onclick="switchTab('author')" class="flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-user"></i>
+        <span>Автор</span>
+      </button>
+    </div>
+
+    <!-- Раздел: "Импортировать музыку" -->
+    <section id="section-import" class="w-full">
+      <div class="glassmorphism rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+        <div class="absolute -right-16 -top-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-16 -bottom-16 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-2xl mx-auto text-center">
+          <div class="inline-flex p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 mb-3">
+            <i class="fa-solid fa-file-audio text-3xl"></i>
+          </div>
+          <h2 class="text-2xl font-bold mb-2 text-white">Импортировать музыку</h2>
+          <p class="text-slate-400 text-sm mb-6">
+            Загружайте аудио и видео из галереи или памяти телефона. Поддерживаются форматы: MP3, M4A, WAV, FLAC, AAC, MP4, MOV, WebM и другие.
+          </p>
+
+          <!-- Дропзона для файлов -->
+          <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-emerald-500/80 bg-slate-900/50 hover:bg-slate-900/90 rounded-3xl p-6 sm:p-8 flex flex-col items-center justify-center gap-4 transition-all duration-300">
+            <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400 shadow-inner">
+              <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+            </div>
+            
+            <div class="text-center">
+              <p class="font-medium text-base text-slate-200">
+                Выберите аудио или видео с устройства
+              </p>
+              <p class="text-xs text-slate-400 mt-1">
+                Файлы останутся в вашем телефоне и будут доступны офлайн
+              </p>
+            </div>
+
+            <!-- Кнопки выбора файлов для телефонов -->
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md mt-2">
+              <label for="media-file-input" class="w-full flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">
+                <i class="fa-solid fa-music"></i> Выбрать аудио / видео
+              </label>
+
+              <label for="media-file-input-fallback" class="w-full sm:w-auto py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all" title="Если телефон не видит файлы">
+                <i class="fa-solid fa-folder"></i> Все файлы
+              </label>
+            </div>
+
+            <p class="text-[11px] text-slate-500">
+              Если в проводнике не нажимаются песни, используйте кнопку «Все файлы»
+            </p>
+          </div>
+
+          <!-- Скрытые инпуты с широкими фильтрами -->
+          <input type="file" id="media-file-input" accept="audio/*,video/*,.mp3,.m4a,.wav,.flac,.aac,.ogg,.wma,.opus,.mp4,.mov,.m4v,.webm,.mkv" multiple class="hidden" onchange="handleFileSelection(event)">
+          <input type="file" id="media-file-input-fallback" multiple class="hidden" onchange="handleFileSelection(event)">
+
+          <div id="import-status" class="mt-4 hidden text-sm font-medium py-3 px-4 rounded-xl border"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Раздел: "Импортированная музыка" -->
+    <section id="section-list" class="w-full">
+      <div class="glassmorphism rounded-3xl p-4 sm:p-8 border border-slate-800 shadow-2xl">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+          <div>
+            <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+              <span>Импортированная музыка</span>
+              <span class="text-sm font-normal text-slate-400">(Очередь воспроизведения)</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              Используйте стрелки «Вверх» и «Вниз», чтобы задать порядок проигрывания треков друг за другом.
+            </p>
+          </div>
+          
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="clearAllTracks()" class="text-xs text-red-400 hover:text-red-300 bg-red-950/30 hover:bg-red-900/40 border border-red-800/40 py-2 px-3 rounded-xl transition flex items-center gap-1.5 ml-auto sm:ml-0">
+              <i class="fa-solid fa-trash-can"></i> Очистить всё
+            </button>
+          </div>
+        </div>
+
+        <!-- Контейнер со списком композиций -->
+        <div id="playlist-container" class="mt-4 divide-y divide-slate-800/60 max-h-[550px] overflow-y-auto pr-1">
+          <!-- Динамический список -->
+        </div>
+
+        <!-- Если плейлист пуст -->
+        <div id="empty-state" class="py-16 text-center flex flex-col items-center justify-center">
+          <div class="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 mb-3">
+            <i class="fa-solid fa-music-slash text-2xl"></i>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-300">Ваш плейлист пока пуст</h3>
+          <p class="text-sm text-slate-500 max-w-sm mt-1">
+            Перейдите в раздел «Импортировать музыку» и добавьте аудио или видео со своего устройства.
+          </p>
+          <button onclick="switchTab('import')" class="mt-4 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">
+            Добавить файлы
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Раздел: "Инструкция по добавлению на главный экран" -->
+    <section id="section-instructions" class="w-full hidden">
+      <div class="glassmorphism rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+        <div class="max-w-3xl mx-auto">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-mobile-screen-button"></i>
+            </div>
+            <div>
+              <h2 class="text-2xl font-bold text-white">Инструкция по добавлению на главный экран</h2>
+              <p class="text-xs sm:text-sm text-slate-400">Сделайте веб-плеер отдельным приложением на телефоне</p>
+            </div>
+          </div>
+
+          <p class="text-sm text-slate-300 mb-6 bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 leading-relaxed">
+            <i class="fa-solid fa-circle-info text-emerald-400 mr-1.5"></i>
+            <strong>Зачем это нужно:</strong> сайт запустится на весь экран без адресной строки браузера, будет открываться в один тап прямо с экрана рабочего стола как полноценное приложение и сохранит все ваши треки в локальной базе памяти.
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- iOS -->
+            <div class="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-2 mb-3 text-slate-100 font-semibold">
+                  <i class="fa-brands fa-apple text-xl text-white"></i>
+                  <span>Для iOS (iPhone / Safari)</span>
+                </div>
+                <ol class="text-xs sm:text-sm text-slate-300 space-y-2.5 list-decimal list-inside">
+                  <li>Откройте сайт именно через стандартный браузер <strong>Safari</strong>.</li>
+                  <li>Нажмите на иконку <strong class="text-emerald-400">«Поделиться»</strong> (квадрат со стрелочкой вверх внизу экрана).</li>
+                  <li>Пролистайте меню вниз и выберите <strong class="text-white">«На экран „Домой“» (Add to Home Screen)</strong>.</li>
+                  <li>В верхнем правом углу нажмите <strong class="text-emerald-400">«Добавить»</strong>.</li>
+                </ol>
+              </div>
+              <div class="mt-4 text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                Иконка MyBestMusic появится на главном экране рядом с остальными приложениями.
+              </div>
+            </div>
+
+            <!-- Android -->
+            <div class="bg-slate-900/70 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center gap-2 mb-3 text-slate-100 font-semibold">
+                  <i class="fa-brands fa-android text-xl text-emerald-400"></i>
+                  <span>Для Android (Chrome / Яндекс)</span>
+                </div>
+                <ol class="text-xs sm:text-sm text-slate-300 space-y-2.5 list-decimal list-inside">
+                  <li>Откройте сайт в <strong>Google Chrome</strong> или вашем привычном браузере.</li>
+                  <li>Нажмите на <strong>три точки</strong> в правом верхнем или нижнем углу браузера.</li>
+                  <li>Выберите пункт <strong class="text-white">«Добавить на главный экран»</strong> или <strong class="text-white">«Установить приложение»</strong>.</li>
+                  <li>Подтвердите действие, нажав <strong class="text-emerald-400">«Добавить»</strong>.</li>
+                </ol>
+              </div>
+              <div class="mt-4 text-[11px] text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                Приложение закрепится в лаунчере и будет работать быстро и изолированно.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Раздел: "Соц сети автора" -->
+    <section id="section-author" class="w-full hidden">
+      <div class="glassmorphism rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
+        <div class="max-w-xl mx-auto text-center flex flex-col items-center">
+          <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-pink-500 via-rose-500 to-indigo-500 flex items-center justify-center text-2xl text-white shadow-xl shadow-pink-500/20 mb-4">
+            <i class="fa-brands fa-tiktok"></i>
+          </div>
+          
+          <h2 class="text-2xl font-bold text-white mb-1">Соц сети автора</h2>
+          <p class="text-xs sm:text-sm text-slate-400 mb-6">
+            Следите за обновлениями, новыми проектами и полезным контентом в TikTok!
+          </p>
+
+          <!-- Карточка со ссылкой на TikTok -->
+          <a href="https://www.tiktok.com/@spideyhdx?_r=1&_t=ZS-9Ajzc7NIGus" target="_blank" rel="noopener noreferrer" class="group w-full max-w-md p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 border border-slate-700/80 hover:border-pink-500/50 transition-all duration-300 flex items-center justify-between shadow-xl">
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-white text-xl group-hover:scale-105 transition-transform">
+                <i class="fa-brands fa-tiktok text-pink-400"></i>
+              </div>
+              <div class="text-left">
+                <div class="text-sm font-bold text-white group-hover:text-pink-400 transition-colors">TikTok: @spideyhdx</div>
+                <div class="text-xs text-slate-400">Перейти в профиль автора</div>
+              </div>
+            </div>
+            <div class="w-8 h-8 rounded-lg bg-slate-800 group-hover:bg-pink-500/20 flex items-center justify-center text-slate-400 group-hover:text-pink-400 transition-colors">
+              <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Скрытый плеер / Видео-превью для видеофайлов -->
+    <div id="video-preview-wrapper" class="glassmorphism rounded-2xl p-4 border border-slate-800 hidden max-w-sm mx-auto w-full transition-all">
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+        <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+          <i class="fa-solid fa-film text-indigo-400"></i> Видео-содержимое
+        </span>
+        <button onclick="toggleVideoVisibility()" class="text-xs text-slate-400 hover:text-white">
+          <i id="video-toggle-icon" class="fa-solid fa-chevron-down"></i>
+        </button>
+      </div>
+      <div id="video-container" class="aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center relative">
+        <video id="media-element" class="w-full h-full object-contain" playsinline></video>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Нижняя панель плеера (Фиксированная) -->
+  <div class="fixed bottom-0 left-0 right-0 z-50 glassmorphism border-t border-slate-800 px-4 py-3 sm:py-4 shadow-2xl">
+    <div class="max-w-6xl mx-auto flex flex-col gap-2">
+      
+      <!-- Прогресс бар (Seek bar) и тайминг -->
+      <div class="flex items-center gap-3 w-full">
+        <span id="current-time-text" class="text-[11px] font-mono text-slate-400 w-10 text-right">0:00</span>
+        <div class="relative flex-1 flex items-center">
+          <input type="range" id="seek-slider" min="0" max="100" value="0" step="0.1" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer focus:outline-none">
+        </div>
+        <span id="duration-time-text" class="text-[11px] font-mono text-slate-400 w-10">0:00</span>
+      </div>
+
+      <!-- Элементы управления и инфо о треке -->
+      <div class="flex items-center justify-between gap-2 sm:gap-4">
+        
+        <!-- Информация о текущем треке -->
+        <div class="flex items-center gap-3 w-1/3 min-w-0">
+          <div id="current-track-icon" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex-shrink-0 flex items-center justify-center text-emerald-400">
+            <i class="fa-solid fa-music"></i>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div id="current-track-title" class="text-sm font-semibold text-white truncate">Ничего не играет</div>
+            <div id="current-track-meta" class="text-xs text-slate-400 truncate">Выберите композицию из списка</div>
+          </div>
+        </div>
+
+        <!-- Центральные кнопки воспроизведения -->
+        <div class="flex items-center justify-center gap-2 sm:gap-4 flex-1">
+          <!-- Перемешать -->
+          <button id="shuffle-btn" onclick="toggleShuffle()" title="В случайном порядке" class="p-2 sm:p-2.5 rounded-full text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-shuffle text-sm"></i>
+          </button>
+          
+          <!-- Предыдущий трек -->
+          <button onclick="playPrevTrack()" title="Предыдущий трек" class="p-2 sm:p-2.5 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition">
+            <i class="fa-solid fa-backward-step text-base"></i>
+          </button>
+          
+          <!-- Воспроизведение / Пауза -->
+          <button id="main-play-btn" onclick="togglePlayPause()" class="w-12 h-12 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 hover:scale-105 transition-all">
+            <i id="main-play-icon" class="fa-solid fa-play text-lg ml-0.5"></i>
+          </button>
+          
+          <!-- Следующий трек -->
+          <button onclick="playNextTrack()" title="Следующий трек" class="p-2 sm:p-2.5 rounded-full text-slate-300 hover:text-white hover:bg-slate-800 transition">
+            <i class="fa-solid fa-forward-step text-base"></i>
+          </button>
+          
+          <!-- Зацикливание -->
+          <button id="repeat-btn" onclick="toggleRepeat()" title="Повтор" class="p-2 sm:p-2.5 rounded-full text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-repeat text-sm"></i>
+          </button>
+        </div>
+
+        <!-- Правый блок: громкость и мини-видео -->
+        <div class="flex items-center justify-end gap-2 w-1/3">
+          <!-- Кнопка показа видео при воспроизведении видеофайлов -->
+          <button id="btn-show-video" onclick="toggleVideoVisibility()" class="hidden sm:flex items-center gap-1 text-xs text-slate-300 bg-slate-800/80 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl border border-slate-700">
+            <i class="fa-solid fa-video text-indigo-400"></i>
+            <span class="hidden md:inline">Видео</span>
+          </button>
+
+          <!-- Громкость -->
+          <div class="hidden sm:flex items-center gap-2">
+            <button id="volume-icon-btn" onclick="toggleMute()" class="text-slate-400 hover:text-white">
+              <i id="vol-icon" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+            <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.9" class="w-16 md:w-20 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Модальное окно подтверждения удаления -->
+  <div id="modal-container" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl text-center">
+      <div class="w-12 h-12 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center mx-auto mb-3">
+        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+      </div>
+      <h4 class="text-lg font-bold text-white mb-2" id="modal-title">Удалить композицию?</h4>
+      <p class="text-xs text-slate-400 mb-6" id="modal-desc">Она будет удалена из вашего локального плейлиста.</p>
+      <div class="flex items-center justify-center gap-3">
+        <button id="modal-cancel-btn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex-1">
+          Отмена
+        </button>
+        <button id="modal-confirm-btn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition flex-1">
+          Удалить
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================
+       1. IndexedDB: Хранение файлов прямо в браузере (Github Pages)
+       ========================================================= */
+    const DB_NAME = 'MyBestMusicDB';
+    const DB_VERSION = 2; // Обновлена версия схемы для совместимости
+    const STORE_NAME = 'tracks';
+
+    let db;
+    let playlist = []; // Массив треков в текущем порядке очереди
+    let currentTrackIndex = -1;
+    let isPlaying = false;
+    let isRepeat = false;
+    let isShuffle = false;
+    let currentBlobUrl = null;
+
+    // DOM Elements
+    const mediaElement = document.getElementById('media-element');
+    const playlistContainer = document.getElementById('playlist-container');
+    const emptyState = document.getElementById('empty-state');
+    const trackCountBadge = document.getElementById('track-count-badge');
+    const mainPlayBtn = document.getElementById('main-play-btn');
+    const mainPlayIcon = document.getElementById('main-play-icon');
+    const currentTrackTitle = document.getElementById('current-track-title');
+    const currentTrackMeta = document.getElementById('current-track-meta');
+    const currentTrackIcon = document.getElementById('current-track-icon');
+    const seekSlider = document.getElementById('seek-slider');
+    const currentTimeText = document.getElementById('current-time-text');
+    const durationTimeText = document.getElementById('duration-time-text');
+    const volumeSlider = document.getElementById('volume-slider');
+    const volIcon = document.getElementById('vol-icon');
+    const repeatBtn = document.getElementById('repeat-btn');
+    const shuffleBtn = document.getElementById('shuffle-btn');
+    const videoPreviewWrapper = document.getElementById('video-preview-wrapper');
+    const btnShowVideo = document.getElementById('btn-show-video');
+
+    // Инициализация базы данных IndexedDB
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains(STORE_NAME)) {
+            database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => {
+          console.error("IndexedDB Open Error:", e);
+          reject(e);
+        };
+      });
+    }
+
+    // Сохранить или обновить трек в IndexedDB с проверкой на мобильные браузеры
+    function saveTrackToDB(track) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject(new Error("База данных не инициализирована"));
+          return;
+        }
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => {
+          console.error("Ошибка транзакции сохранения:", e);
+          reject(e);
+        };
+        tx.onabort = (e) => {
+          console.error("Транзакция прервана:", e);
+          reject(e);
+        };
+
+        store.put(track);
+      });
+    }
+
+    // Загрузить все треки из IndexedDB
+    function loadTracksFromDB() {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          resolve([]);
+          return;
+        }
+        const tx = db.transaction([STORE_NAME], 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const list = req.result || [];
+          list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+          resolve(list);
+        };
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Удалить трек из IndexedDB
+    function deleteTrackFromDB(id) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          resolve();
+          return;
+        }
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Очистить всю базу
+    function clearAllFromDB() {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          resolve();
+          return;
+        }
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Сохранить порядок всех треков в БД
+    async function saveCurrentOrderToDB() {
+      for (let i = 0; i < playlist.length; i++) {
+        playlist[i].orderIndex = i;
+        try {
+          await saveTrackToDB(playlist[i]);
+        } catch (e) {
+          console.warn("Не удалось обновить порядок:", e);
+        }
+      }
+    }
+
+    /* =========================================================
+       2. Переключение вкладок (Табы)
+       ========================================================= */
+    function switchTab(tab) {
+      const secImport = document.getElementById('section-import');
+      const secList = document.getElementById('section-list');
+      const secInstructions = document.getElementById('section-instructions');
+      const secAuthor = document.getElementById('section-author');
+
+      const btnImport = document.getElementById('tab-btn-import');
+      const btnList = document.getElementById('tab-btn-list');
+      const btnInstructions = document.getElementById('tab-btn-instructions');
+      const btnAuthor = document.getElementById('tab-btn-author');
+
+      secImport.classList.add('hidden');
+      secList.classList.add('hidden');
+      secInstructions.classList.add('hidden');
+      secAuthor.classList.add('hidden');
+
+      const inactiveClass = 'flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white';
+      const activeClass = 'flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md';
+
+      btnImport.className = inactiveClass;
+      btnList.className = inactiveClass;
+      btnInstructions.className = inactiveClass;
+      btnAuthor.className = inactiveClass;
+
+      if (tab === 'import') {
+        secImport.classList.remove('hidden');
+        btnImport.className = activeClass;
+      } else if (tab === 'instructions') {
+        secInstructions.classList.remove('hidden');
+        btnInstructions.className = activeClass;
+      } else if (tab === 'author') {
+        secAuthor.classList.remove('hidden');
+        btnAuthor.className = activeClass;
+      } else {
+        secList.classList.remove('hidden');
+        btnList.className = activeClass;
+      }
+    }
+
+    /* =========================================================
+       3. Обработка загрузки и валидации (Аудио / Видео)
+       ========================================================= */
+    // Проверка, является ли файл аудио или видео (по MIME или расширению)
+    function isMediaFile(file) {
+      const type = (file.type || '').toLowerCase();
+      const name = (file.name || '').toLowerCase();
+
+      // Проверка по MIME
+      if (type.startsWith('audio/') || type.startsWith('video/')) {
+        return true;
+      }
+
+      // Проверка по расширениям (на случай, если мобильный проводник не выставил MIME)
+      const validExtensions = [
+        '.mp3', '.m4a', '.wav', '.flac', '.aac', '.ogg', '.wma', '.opus', '.mid', '.midi',
+        '.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi', '.3gp'
+      ];
+
+      return validExtensions.some(ext => name.endsWith(ext));
+    }
+
+    async function handleFileSelection(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      const statusEl = document.getElementById('import-status');
+      statusEl.classList.remove('hidden', 'text-emerald-400', 'bg-emerald-950/40', 'border-emerald-800/40', 'text-red-400', 'bg-red-950/40', 'border-red-800/40');
+      statusEl.classList.add('text-indigo-400', 'bg-indigo-950/40', 'border-indigo-800/40');
+      statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>Обработка и сохранение файлов... (0/${files.length})`;
+
+      let importedCount = 0;
+      let rejectedCount = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        if (!isMediaFile(file)) {
+          rejectedCount++;
+          continue;
+        }
+
+        const cleanTitle = file.name.replace(/\.[^/.]+$/, "");
+        const isVideo = (file.type && file.type.startsWith('video/')) || 
+                        /\.(mp4|mov|webm|m4v|mkv|avi|3gp)$/i.test(file.name);
+
+        try {
+          // Надежное чтение бинарных данных для предотвращения сбоя сериализации на iOS Safari
+          const arrayBuffer = await file.arrayBuffer();
+          const mimeType = file.type || (isVideo ? 'video/mp4' : 'audio/mp3');
+          const safeBlob = new Blob([arrayBuffer], { type: mimeType });
+
+          const trackItem = {
+            id: 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            name: cleanTitle || 'Без названия',
+            originalFilename: file.name,
+            type: isVideo ? 'video' : 'audio',
+            mimeType: mimeType,
+            fileBlob: safeBlob,
+            size: file.size,
+            orderIndex: playlist.length + importedCount,
+            dateAdded: Date.now()
+          };
+
+          await saveTrackToDB(trackItem);
+          playlist.push(trackItem);
+          importedCount++;
+
+          statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>Сохранено: ${importedCount} из ${files.length}...`;
+        } catch (err) {
+          console.error("Ошибка сохранения трека:", file.name, err);
+          rejectedCount++;
+        }
+      }
+
+      // Сброс значения инпутов
+      event.target.value = '';
+      const altInput = document.getElementById('media-file-input-fallback');
+      if (altInput) altInput.value = '';
+      const primaryInput = document.getElementById('media-file-input');
+      if (primaryInput) primaryInput.value = '';
+
+      renderPlaylist();
+
+      if (importedCount > 0) {
+        statusEl.className = 'mt-4 text-sm font-medium py-3 px-4 rounded-xl border text-emerald-400 bg-emerald-950/40 border-emerald-800/40';
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-check mr-2"></i>Успешно добавлено: ${importedCount} трек(ов)!${rejectedCount > 0 ? ` (Пропущено не-медиа файлов: ${rejectedCount})` : ''}`;
+        
+        setTimeout(() => {
+          switchTab('list');
+          statusEl.classList.add('hidden');
+        }, 1000);
+      } else {
+        statusEl.className = 'mt-4 text-sm font-medium py-3 px-4 rounded-xl border text-red-400 bg-red-950/40 border-red-800/40';
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-xmark mr-2"></i>Не удалось импортировать. Выберите аудио или видео файл (MP3, WAV, MP4 и т.д.).`;
+      }
+    }
+
+    // Поддержка Drag-and-Drop
+    const dropZone = document.getElementById('drop-zone');
+    if (dropZone) {
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('border-emerald-400', 'bg-slate-800/80');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('border-emerald-400', 'bg-slate-800/80');
+        }, false);
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+          handleFileSelection({ target: { files: files, value: '' } });
+        }
+      });
+    }
+
+    // Сохранить или обновить трек в IndexedDB
+    function saveTrackToDB(track) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put(track);
+        req.onsuccess = () => resolve();
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Загрузить все треки из IndexedDB
+    function loadTracksFromDB() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const list = req.result || [];
+          // Сортируем согласно сохраненному значению очереди orderIndex
+          list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+          resolve(list);
+        };
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Удалить трек из IndexedDB
+    function deleteTrackFromDB(id) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Очистить всю базу
+    function clearAllFromDB() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_NAME], 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Сохранить порядок всех треков в БД
+    async function saveCurrentOrderToDB() {
+      for (let i = 0; i < playlist.length; i++) {
+        playlist[i].orderIndex = i;
+        await saveTrackToDB(playlist[i]);
+      }
+    }
+
+    /* =========================================================
+       2. Переключение вкладок (Табы)
+       ========================================================= */
+    function switchTab(tab) {
+      const secImport = document.getElementById('section-import');
+      const secList = document.getElementById('section-list');
+      const secInstructions = document.getElementById('section-instructions');
+      const secAuthor = document.getElementById('section-author');
+
+      const btnImport = document.getElementById('tab-btn-import');
+      const btnList = document.getElementById('tab-btn-list');
+      const btnInstructions = document.getElementById('tab-btn-instructions');
+      const btnAuthor = document.getElementById('tab-btn-author');
+
+      // Скрываем все разделы
+      secImport.classList.add('hidden');
+      secList.classList.add('hidden');
+      secInstructions.classList.add('hidden');
+      secAuthor.classList.add('hidden');
+
+      const inactiveClass = 'flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white';
+      const activeClass = 'flex-1 min-w-[120px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md';
+
+      btnImport.className = inactiveClass;
+      btnList.className = inactiveClass;
+      btnInstructions.className = inactiveClass;
+      btnAuthor.className = inactiveClass;
+
+      if (tab === 'import') {
+        secImport.classList.remove('hidden');
+        btnImport.className = activeClass;
+      } else if (tab === 'instructions') {
+        secInstructions.classList.remove('hidden');
+        btnInstructions.className = activeClass;
+      } else if (tab === 'author') {
+        secAuthor.classList.remove('hidden');
+        btnAuthor.className = activeClass;
+      } else {
+        secList.classList.remove('hidden');
+        btnList.className = activeClass;
+      }
+    }
+
+    /* =========================================================
+       3. Обработка загрузки и валидации (Аудио / Видео)
+       ========================================================= */
+    async function handleFileSelection(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      const statusEl = document.getElementById('import-status');
+      statusEl.classList.remove('hidden', 'text-emerald-400', 'bg-emerald-950/40', 'border-emerald-800/40', 'text-red-400', 'bg-red-950/40', 'border-red-800/40');
+      statusEl.classList.add('text-indigo-400', 'bg-indigo-950/40', 'border-indigo-800/40');
+      statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>Импорт файлов... Пожалуйста, подождите.`;
+
+      let importedCount = 0;
+      let rejectedCount = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Строгая валидация: Только audio или video (без картинок/фото)
+        const isAudio = file.type.startsWith('audio/');
+        const isVideo = file.type.startsWith('video/');
+
+        if (!isAudio && !isVideo) {
+          rejectedCount++;
+          continue; // Игнорируем картинки и неподдерживаемые типы
+        }
+
+        const cleanTitle = file.name.replace(/\.[^/.]+$/, ""); // Убираем расширение для читаемости
+
+        // Формируем объект трека
+        const trackItem = {
+          id: 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+          name: cleanTitle,
+          originalFilename: file.name,
+          type: isVideo ? 'video' : 'audio',
+          mimeType: file.type || (isVideo ? 'video/mp4' : 'audio/mp3'),
+          fileBlob: file, // Сохраняем реальный Blob в IndexedDB
+          size: file.size,
+          orderIndex: playlist.length + importedCount,
+          dateAdded: Date.now()
+        };
+
+        await saveTrackToDB(trackItem);
+        playlist.push(trackItem);
+        importedCount++;
+      }
+
+      // Очищаем значение поля ввода
+      event.target.value = '';
+
+      // Обновляем список на странице
+      renderPlaylist();
+
+      if (importedCount > 0) {
+        statusEl.className = 'mt-4 text-sm font-medium py-2.5 px-4 rounded-xl border text-emerald-400 bg-emerald-950/40 border-emerald-800/40';
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-check mr-2"></i>Успешно добавлено композиций: ${importedCount}.${rejectedCount > 0 ? ` Пропущено файлов других типов: ${rejectedCount}.` : ''}`;
+        
+        setTimeout(() => {
+          switchTab('list');
+          statusEl.classList.add('hidden');
+        }, 1200);
+      } else {
+        statusEl.className = 'mt-4 text-sm font-medium py-2.5 px-4 rounded-xl border text-red-400 bg-red-950/40 border-red-800/40';
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-xmark mr-2"></i>Не удалось импортировать файлы. Пожалуйста, выбирайте только аудио или видео.`;
+      }
+    }
+
+    // Поддержка Drag-and-Drop
+    const dropZone = document.getElementById('drop-zone');
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('border-emerald-400', 'bg-slate-800/80');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('border-emerald-400', 'bg-slate-800/80');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length > 0) {
+        handleFileSelection({ target: { files: files, value: '' } });
+      }
+    });
+
+    /* =========================================================
+       4. Отрисовка списка и управление очередью (Вверх / Вниз)
+       ========================================================= */
+    function renderPlaylist() {
+      trackCountBadge.innerText = `${playlist.length} треков`;
+      playlistContainer.innerHTML = '';
+
+      if (playlist.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      playlist.forEach((track, index) => {
+        const isCurrent = (index === currentTrackIndex);
+        const itemEl = document.createElement('div');
+        itemEl.className = `p-3 sm:p-4 rounded-2xl transition flex items-center justify-between gap-3 ${
+          isCurrent ? 'bg-emerald-950/40 border border-emerald-500/40 shadow-md' : 'hover:bg-slate-900/60'
+        }`;
+
+        // Бейдж формата
+        const isVideo = track.type === 'video';
+        const typeBadge = isVideo 
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Видео</span>`
+          : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Аудио</span>`;
+
+        itemEl.innerHTML = `
+          <!-- Левая часть: Номер, Кнопка Play, Название -->
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <span class="text-xs font-mono text-slate-500 w-5 text-center flex-shrink-0">${index + 1}</span>
+            
+            <button onclick="playTrackAtIndex(${index})" class="w-9 h-9 rounded-xl ${isCurrent && isPlaying ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'} flex-shrink-0 flex items-center justify-center transition">
+              <i class="fa-solid ${isCurrent && isPlaying ? 'fa-pause' : 'fa-play'} text-xs"></i>
+            </button>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold truncate ${isCurrent ? 'text-emerald-400 font-bold' : 'text-slate-200'}">
+                  ${escapeHtml(track.name)}
+                </span>
+                ${typeBadge}
+              </div>
+              <div class="text-[11px] text-slate-400 truncate">
+                ${formatFileSize(track.size)} • Позиция в очереди: #${index + 1}
+              </div>
+            </div>
+          </div>
+
+          <!-- Правая часть: Кнопки перемещения в очереди (Вверх / Вниз) и Удаление -->
+          <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <!-- Кнопка ВВЕРХ -->
+            <button onclick="moveTrack(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Переместить вверх в очереди" 
+              class="w-8 h-8 rounded-lg flex items-center justify-center text-xs transition ${
+                index === 0 
+                  ? 'text-slate-600 bg-slate-900 cursor-not-allowed' 
+                  : 'text-slate-300 bg-slate-800 hover:bg-emerald-600 hover:text-white'
+              }">
+              <i class="fa-solid fa-arrow-up"></i>
+            </button>
+
+            <!-- Кнопка ВНИЗ -->
+            <button onclick="moveTrack(${index}, 1)" ${index === playlist.length - 1 ? 'disabled' : ''} title="Переместить вниз в очереди"
+              class="w-8 h-8 rounded-lg flex items-center justify-center text-xs transition ${
+                index === playlist.length - 1 
+                  ? 'text-slate-600 bg-slate-900 cursor-not-allowed' 
+                  : 'text-slate-300 bg-slate-800 hover:bg-emerald-600 hover:text-white'
+              }">
+              <i class="fa-solid fa-arrow-down"></i>
+            </button>
+
+            <!-- Кнопка Удалить -->
+            <button onclick="confirmDeleteTrack('${track.id}')" title="Удалить из списка" class="w-8 h-8 rounded-lg flex items-center justify-center text-xs text-slate-400 hover:text-red-400 bg-slate-800 hover:bg-slate-700 transition">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        `;
+
+        playlistContainer.appendChild(itemEl);
+      });
+    }
+
+    // Перемещение элементов очереди выше и ниже
+    async function moveTrack(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= playlist.length) return;
+
+      // Меняем местами элементы в массиве
+      const temp = playlist[index];
+      playlist[index] = playlist[targetIndex];
+      playlist[targetIndex] = temp;
+
+      // Корректируем индекс воспроизводимого трека
+      if (currentTrackIndex === index) {
+        currentTrackIndex = targetIndex;
+      } else if (currentTrackIndex === targetIndex) {
+        currentTrackIndex = index;
+      }
+
+      renderPlaylist();
+      await saveCurrentOrderToDB();
+    }
+
+    /* =========================================================
+       5. Воспроизведение, перемотка и события Audio/Video
+       ========================================================= */
+    async function playTrackAtIndex(index) {
+      if (index < 0 || index >= playlist.length) return;
+
+      // Если кликнули по уже играющему треку — переключаем паузу
+      if (index === currentTrackIndex) {
+        togglePlayPause();
+        return;
+      }
+
+      currentTrackIndex = index;
+      const track = playlist[currentTrackIndex];
+
+      // Освобождаем предыдущий созданный URL объекта для экономии ОЗУ
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+
+      // Создаем локальный URL для проигрывания
+      currentBlobUrl = URL.createObjectURL(track.fileBlob);
+      mediaElement.src = currentBlobUrl;
+
+      // Обновляем UI информацию о треке
+      currentTrackTitle.innerText = track.name;
+      currentTrackMeta.innerText = track.type === 'video' ? 'Видео-дорожка' : 'Аудио-трек';
+      currentTrackIcon.innerHTML = track.type === 'video' 
+        ? '<i class="fa-solid fa-film text-indigo-400"></i>' 
+        : '<i class="fa-solid fa-music text-emerald-400"></i>';
+
+      // Показываем блок видео, если файл является видео
+      if (track.type === 'video') {
+        btnShowVideo.classList.remove('hidden');
+        videoPreviewWrapper.classList.remove('hidden');
+      } else {
+        btnShowVideo.classList.add('hidden');
+        videoPreviewWrapper.classList.add('hidden');
+      }
+
+      try {
+        await mediaElement.play();
+        isPlaying = true;
+        updatePlayStateUI();
+      } catch (err) {
+        console.warn("Воспроизведение заблокировано браузером до взаимодействия пользователя:", err);
+      }
+
+      renderPlaylist();
+    }
+
+    function togglePlayPause() {
+      if (playlist.length === 0) return;
+
+      if (currentTrackIndex === -1) {
+        playTrackAtIndex(0);
+        return;
+      }
+
+      if (mediaElement.paused) {
+        mediaElement.play().then(() => {
+          isPlaying = true;
+          updatePlayStateUI();
+          renderPlaylist();
+        }).catch(e => console.error(e));
+      } else {
+        mediaElement.pause();
+        isPlaying = false;
+        updatePlayStateUI();
+        renderPlaylist();
+      }
+    }
+
+    function updatePlayStateUI() {
+      if (isPlaying) {
+        mainPlayIcon.className = 'fa-solid fa-pause text-lg';
+      } else {
+        mainPlayIcon.className = 'fa-solid fa-play text-lg ml-0.5';
+      }
+    }
+
+    function playNextTrack() {
+      if (playlist.length === 0) return;
+
+      if (isShuffle) {
+        const randIndex = Math.floor(Math.random() * playlist.length);
+        playTrackAtIndex(randIndex);
+        return;
+      }
+
+      // Воспроизведение СЛЕДУЮЩЕГО СТРОГО ПО ОЧЕРЕДИ
+      let nextIndex = currentTrackIndex + 1;
+      if (nextIndex >= playlist.length) {
+        if (isRepeat) {
+          nextIndex = 0; // Начинаем сначала очереди
+        } else {
+          // Конец списка
+          mediaElement.pause();
+          isPlaying = false;
+          updatePlayStateUI();
+          return;
+        }
+      }
+      playTrackAtIndex(nextIndex);
+    }
+
+    function playPrevTrack() {
+      if (playlist.length === 0) return;
+
+      // Если трек уже играл более 3 секунд, повторить сначала
+      if (mediaElement.currentTime > 3) {
+        mediaElement.currentTime = 0;
+        return;
+      }
+
+      let prevIndex = currentTrackIndex - 1;
+      if (prevIndex < 0) {
+        prevIndex = playlist.length - 1;
+      }
+      playTrackAtIndex(prevIndex);
+    }
+
+    // Автоматический переход к следующему треку при окончании текущего
+    mediaElement.addEventListener('ended', () => {
+      if (isRepeat && playlist.length === 1) {
+        mediaElement.currentTime = 0;
+        mediaElement.play();
+      } else {
+        playNextTrack();
+      }
+    });
+
+    // Обновление ползунка времени
+    mediaElement.addEventListener('timeupdate', () => {
+      if (!isNaN(mediaElement.duration)) {
+        const percent = (mediaElement.currentTime / mediaElement.duration) * 100;
+        seekSlider.value = percent || 0;
+        currentTimeText.innerText = formatTime(mediaElement.currentTime);
+        durationTimeText.innerText = formatTime(mediaElement.duration);
+      }
+    });
+
+    // Перемотка
+    seekSlider.addEventListener('input', () => {
+      if (!isNaN(mediaElement.duration)) {
+        const targetTime = (seekSlider.value / 100) * mediaElement.duration;
+        mediaElement.currentTime = targetTime;
+      }
+    });
+
+    // Регулировка звука
+    volumeSlider.addEventListener('input', () => {
+      mediaElement.volume = volumeSlider.value;
+      updateVolumeIcon(volumeSlider.value);
+    });
+
+    function updateVolumeIcon(vol) {
+      if (vol == 0) {
+        volIcon.className = 'fa-solid fa-volume-xmark text-sm text-red-400';
+      } else if (vol < 0.5) {
+        volIcon.className = 'fa-solid fa-volume-low text-sm text-slate-300';
+      } else {
+        volIcon.className = 'fa-solid fa-volume-high text-sm text-slate-300';
+      }
+    }
+
+    function toggleMute() {
+      if (mediaElement.volume > 0) {
+        mediaElement.dataset.lastVol = mediaElement.volume;
+        mediaElement.volume = 0;
+        volumeSlider.value = 0;
+      } else {
+        const last = mediaElement.dataset.lastVol || 0.8;
+        mediaElement.volume = last;
+        volumeSlider.value = last;
+      }
+      updateVolumeIcon(mediaElement.volume);
+    }
+
+    function toggleRepeat() {
+      isRepeat = !isRepeat;
+      repeatBtn.className = isRepeat 
+        ? 'p-2 sm:p-2.5 rounded-full text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 transition' 
+        : 'p-2 sm:p-2.5 rounded-full text-slate-400 hover:text-white transition';
+    }
+
+    function toggleShuffle() {
+      isShuffle = !isShuffle;
+      shuffleBtn.className = isShuffle 
+        ? 'p-2 sm:p-2.5 rounded-full text-indigo-400 bg-indigo-950/60 border border-indigo-500/40 transition' 
+        : 'p-2 sm:p-2.5 rounded-full text-slate-400 hover:text-white transition';
+    }
+
+    function toggleVideoVisibility() {
+      videoPreviewWrapper.classList.toggle('hidden');
+    }
+
+    /* =========================================================
+       6. Удаление и модальные окна
+       ========================================================= */
+    let trackIdToDelete = null;
+
+    function confirmDeleteTrack(id) {
+      trackIdToDelete = id;
+      const modal = document.getElementById('modal-container');
+      const track = playlist.find(t => t.id === id);
+      document.getElementById('modal-title').innerText = 'Удалить композицию?';
+      document.getElementById('modal-desc').innerText = `Вы собираетесь удалить "${track ? track.name : ''}" из списка.`;
+      modal.classList.remove('hidden');
+    }
+
+    document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+      document.getElementById('modal-container').classList.add('hidden');
+      trackIdToDelete = null;
+    });
+
+    document.getElementById('modal-confirm-btn').addEventListener('click', async () => {
+      if (!trackIdToDelete) return;
+
+      const deleteIdx = playlist.findIndex(t => t.id === trackIdToDelete);
+      if (deleteIdx !== -1) {
+        // Если удаляем текущий воспроизводимый трек
+        if (deleteIdx === currentTrackIndex) {
+          mediaElement.pause();
+          mediaElement.src = '';
+          isPlaying = false;
+          updatePlayStateUI();
+          currentTrackTitle.innerText = 'Ничего не играет';
+          currentTrackMeta.innerText = 'Выберите композицию';
+          currentTrackIndex = -1;
+          videoPreviewWrapper.classList.add('hidden');
+        } else if (deleteIdx < currentTrackIndex) {
+          currentTrackIndex--;
+        }
+
+        await deleteTrackFromDB(trackIdToDelete);
+        playlist.splice(deleteIdx, 1);
+        await saveCurrentOrderToDB();
+        renderPlaylist();
+      }
+
+      document.getElementById('modal-container').classList.add('hidden');
+      trackIdToDelete = null;
+    });
+
+    async function clearAllTracks() {
+      if (playlist.length === 0) return;
+      if (confirm('Вы уверены, что хотите удалить все треки из плейлиста?')) {
+        mediaElement.pause();
+        mediaElement.src = '';
+        isPlaying = false;
+        updatePlayStateUI();
+        currentTrackTitle.innerText = 'Ничего не играет';
+        currentTrackMeta.innerText = 'Выберите композицию';
+        videoPreviewWrapper.classList.add('hidden');
+        currentTrackIndex = -1;
+
+        playlist = [];
+        await clearAllFromDB();
+        renderPlaylist();
+      }
+    }
+
+    /* =========================================================
+       7. Вспомогательные функции (Форматирование времени, размера)
+       ========================================================= */
+    function formatTime(seconds) {
+      if (isNaN(seconds) || seconds < 0) return "0:00";
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function formatFileSize(bytes) {
+      if (!bytes) return "0 МБ";
+      const mb = bytes / (1024 * 1024);
+      return mb.toFixed(1) + " МБ";
+    }
+
+    function escapeHtml(text) {
+      if (!text) return "";
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    /* =========================================================
+       8. Запуск приложения при загрузке страницы
+       ========================================================= */
+    window.onload = async function() {
+      try {
+        await initDB();
+        playlist = await loadTracksFromDB();
+        renderPlaylist();
+
+        // По умолчанию показываем раздел "Импортированная музыка", если уже есть треки,
+        // либо раздел импорта, если плейлист еще пуст
+        if (playlist.length > 0) {
+          switchTab('list');
+        } else {
+          switchTab('import');
+        }
+      } catch (err) {
+        console.error("Ошибка при инициализации плейлиста:", err);
+      }
+    };
+  </script>
+</body>
+</html>
